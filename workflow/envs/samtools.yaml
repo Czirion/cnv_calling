@@ -1,0 +1,14 @@
+name: samtools
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:  
+  - samtools
+  - bedtools
+  - bcftools
+  - xonsh
+  - pandas
+  - click
+  - scipy
+  - numpy

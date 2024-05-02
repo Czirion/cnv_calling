@@ -1,0 +1,18 @@
+sample_table: "config/sample_metadata.csv" # Path to CSV table with columns: sample, group, and more optional metadata.
+chrom_names: "config/chromosome_names.csv" # Path to a file with the chromosome names
+data: "data/samples/" # Path to the folder with the bam and bam.bai files
+references: "data/references/" # Path to the folder with the reference genomes
+outdir: "results/" # Path to the folder where the results will be saved
+
+mosdepth: 
+  threads: 12  
+  window_size: 500 # Region size for mosdepth
+  min_mapq: 20 # Minimum mapping quality for mosdepth
+  extra: ""
+cnv_calling:
+  smoothing_size: 15 # Parameter for median filtering smoothing of the depth
+  cnv_size: 500 # Minimum size of CNV to be called
+  depth_threshold: 0.6 # Normalized depth fraction above or bellow 1 to consider a sequence to be duplicated or deleted, respectively.
+repeats:
+  repeats_database: "config/RepBase.fasta"
+  threads: 36
