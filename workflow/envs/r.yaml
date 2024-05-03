@@ -1,0 +1,15 @@
+name : plotting
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-essentials
+  - r-svglite
+  - r-tidyverse
+  - r-rcolorbrewer
+  - r-scales
+  - bioconductor-complexheatmap
+  - r-ggnewscale
+  - r-httpgd
+  - r-patchwork

@@ -16,3 +16,6 @@ cnv_calling:
 repeats:
   repeats_database: "config/RepBase.fasta"
   threads: 36
+
+plot:
+  activate: True

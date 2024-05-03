@@ -44,12 +44,20 @@ rule repeat_masker:
     shell:
         "bash workflow/scripts/repeat-masker.sh {threads} {input.database} {input.fasta} {input.known} {input.unknown} {output} &> {log}"
 
+rule join_repeats:
+    input:
+        expand(REFS_DIR / "{lineage}" / "repeats" / "{lineage}_repeats.bed", lineage = LINEAGES)
+    output:
+        REFS_DIR / "repeats.bed"
+    run:
+        repeats = pd.concat([pd.read_csv(f, sep="\t", header=None) for f in input])
+        repeats.to_csv(output[0], sep="\t", index=False, header=False)
 
 # Get average read depth per window of each sample 
 rule mosdepth:
     input:
-        bam = BAMS / "{sample}.bam",
-        bai = BAMS / "{sample}.bam.bai"
+        bam = BAMS / "{sample}"/ "snps.bam",
+        bai = BAMS / "{sample}" / "snps.bam.bai"
     output:
         bed = SAMPLES_DIR / "mosdepth" / "{sample}" / "depth.regions.bed.gz"
     params:
@@ -115,3 +123,20 @@ rule dataset_cnv:
     run:
         cnv = pd.concat([pd.read_csv(f, sep="\t") for f in input])
         cnv.to_csv(output[0], sep="\t", index=False)
+
+rule plot_cnv:
+    input:
+        DATASET_DIR / "copy_number_variants_dataset.tsv",
+        REFS_DIR / "repeats.bed",
+        SAMPLEFILE,
+        CHROM_NAMES
+    output:
+        DATASET_DIR / "plots.done"
+    params:
+        DATASET_DIR
+    conda:
+        "../envs/r.yaml"
+    log:
+        "logs/dataset/plot_cnv.log"
+    script:
+        "../scripts/cnv_plot.R"
