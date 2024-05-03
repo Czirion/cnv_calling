@@ -1,3 +1,50 @@
+rule links:
+    input:
+        REFS / "{lineage}.fasta"
+    output:
+        REFS_DIR / "{lineage}" / "{lineage}.fasta"
+    log:
+        "logs/references/links/{lineage}.log"
+    shell:
+        "ln -s -r -f {input} {output} &> {log}"
+
+# Run RepeatModeler for each reference genome
+rule repeat_modeler:
+    input:
+        rules.links.output
+    output:
+        known = REFS_DIR / "{lineage}" / "repeats" / "{lineage}_known.fa",
+        unknown = REFS_DIR / "{lineage}" / "repeats" / "{lineage}_unknown.fa"
+    params:
+        repdir = "repeats"
+    threads:
+        config["repeats"]["threads"]
+    conda:
+        "../envs/repeatmasker.yaml"
+    log:
+        "logs/references/repeats/repeatmodeler_{lineage}.log"
+    shell:
+        "bash workflow/scripts/repeat-modeler.sh {threads} {input} {params.repdir} &> {log}"
+
+# Run RepeatMasker for each reference genome. Obtain a BED file with the location of the repetitive sequences
+rule repeat_masker:
+    input:
+        database = config["repeats"]["repeats_database"],
+        fasta = rules.links.output,
+        known = rules.repeat_modeler.output.known,
+        unknown = rules.repeat_modeler.output.unknown
+    output:
+        REFS_DIR / "{lineage}" / "repeats" / "{lineage}_repeats.bed"
+    threads:
+        config["repeats"]["threads"]
+    conda:
+        "../envs/repeatmasker.yaml"
+    log:
+        "logs/references/repeats/repeatmasker_{lineage}.log"
+    shell:
+        "bash workflow/scripts/repeat-masker.sh {threads} {input.database} {input.fasta} {input.known} {input.unknown} {output} &> {log}"
+
+
 # Get average read depth per window of each sample 
 rule mosdepth:
     input:
@@ -25,43 +72,6 @@ rule mosdepth:
         "{params.outdir}/{wildcards.sample}/depth "
         "{input.bam} "
         "&> {log} "
-
-# Run RepeatModeler for each reference genome
-rule repeat_modeler:
-    input:
-        REFS / "{lineage}.fasta"
-    output:
-        known = REFS_DIR / "{lineage}" / "repeats" / "{lineage}_known.fa",
-        unknown = REFS_DIR / "{lineage}" / "repeats" / "{lineage}_unknown.fa"
-    params:
-        repdir = "repeats"
-    threads:
-        config["repeats"]["threads"]
-    conda:
-        "../envs/repeatmasker.yaml"
-    log:
-        "logs/references/repeats/repeatmodeler_{lineage}.log"
-    shell:
-        "bash workflow/scripts/repeat-modeler.sh {threads} {input} {params.repdir} &> {log}"
-
-# Run RepeatMasker for each reference genome. Obtain a BED file with the location of the repetitive sequences
-rule repeat_masker:
-    input:
-        database = config["repeats"]["repeats_database"],
-        fasta = REFS / "{lineage}.fasta",
-        known = rules.repeat_modeler.output.known,
-        unknown = rules.repeat_modeler.output.unknown
-    output:
-        REFS_DIR / "{lineage}" / "repeats" / "{lineage}_repeats.bed"
-    threads:
-        config["repeats"]["threads"]
-    conda:
-        "../envs/repeatmasker.yaml"
-    log:
-        "logs/references/repeats/repeatmasker_{lineage}.log"
-    shell:
-        "bash workflow/scripts/repeat-masker.sh {threads} {input.database} {input.fasta} {input.known} {input.unknown} {output} &> {log}"
-
 
 def cnv_calling_input(wildcards):
     s = SAMPLE_REFERENCE.loc[wildcards.sample,]
@@ -101,8 +111,7 @@ rule dataset_cnv:
     input:
         expand(SAMPLES_DIR / "cnv" / "{sample}" / "copy_number_variants.tsv", sample = SAMPLES)
     output:
-        DATASET_DIR / "cnv" / "copy_number_variants_dataset.tsv"
-    log:
-        "logs/dataset/cnd/dataset_cnv.log"
-    shell:
-        "cat {input} > {output} 2> {log}"
+        DATASET_DIR / "copy_number_variants_dataset.tsv"
+    run:
+        cnv = pd.concat([pd.read_csv(f, sep="\t") for f in input])
+        cnv.to_csv(output[0], sep="\t", index=False)

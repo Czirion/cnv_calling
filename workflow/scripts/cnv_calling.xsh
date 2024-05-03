@@ -10,7 +10,7 @@ import numpy as np
 @click.option('-co', '--chromosome_output', help='Path to output table of stats by chromosome.', type=click.Path())
 @click.option('-wo', '--windows_output', help='Path to output table of stats by window.', type=click.Path())
 @click.option('-vo', '--cnv_output', help='Path to output table of copy_number_variants.', type=click.Path())
-@click.option('-p', '--sample_name', help='Sample name as a string.', type=str)
+@click.option('-np', '--sample_name', help='Sample name as a string.', type=str)
 @click.option('-wp', '--window_size', help='Size of regions in the coverage BED file.', type=int)
 @click.option('-sp', '--smooth_size', help='Size parameter for the smoothing function.', type=int)
 @click.option('-dp', '--depth_threshold', help='Threshold to define if a loci is a CNV.', type=click.types.FloatRange(min=0.0))
@@ -33,21 +33,18 @@ def intersect_repeats(depth_input, repeats_input, chromosome_output, windows_out
 
     print("Calculate fraction of region with repetitive sequences.")
     regions_repeats = df.copy()
-    regions_repeats['Repeat_fraction'] = (regions_repeats['Overlap_bp'] / region_size).round(2)
+    regions_repeats['Repeat_fraction'] = (regions_repeats['Overlap_bp'] / window_size).round(2)
     regions_repeats.columns = regions_repeats.columns.str.replace('bed_', '')
 
     print("Filter out regions with to many repeats, calculate genome-wide mean and median, and chromosome mean and median.")
     regions = regions_repeats[['Accession', 'Start', 'End', 'Coverage']]
     Global_Mean = regions['Coverage'].mean().round(2)
     Global_Median = regions['Coverage'].median().round(2)
-    Global_Mode = regions['Coverage'].mode().round(2)
     Chrom_Mean = regions.groupby('Accession').agg(Chrom_Mean=('Coverage', 'mean')).reset_index()
     Chrom_Median = regions.groupby('Accession').agg(Chrom_Median=('Coverage', 'median')).reset_index()
-    Chrom_Mode = regions.groupby('Accession').agg(Chrom_Mode=('Coverage', 'mode')).reset_index()
     chrom_stats = pd.merge(Chrom_Mean, Chrom_Median, on='Accession')
     chrom_stats['Global_Mean'] = Global_Mean
     chrom_stats['Global_Median'] = Global_Median
-    chrom_stats['Global_Mode'] = Global_Mode
     chrom_stats['Sample'] = sample_name
     chrom_stats = chrom_stats.round(2)
     chrom_stats.to_csv(chromosome_output, sep='\t', index=False, header=True)
@@ -56,7 +53,6 @@ def intersect_repeats(depth_input, repeats_input, chromosome_output, windows_out
     regions_norm = regions_repeats[['Accession', 'Start', 'End', 'Coverage', 'Overlap_bp','Repeat_fraction']].copy()
     regions_norm.loc[:,'Norm_Mean'] = regions_norm['Coverage'] / Global_Mean
     regions_norm.loc[:,'Norm_Median'] = regions_norm['Coverage'] / Global_Median
-    regions_norm.loc[:,'Norm_Mode'] = regions_norm['Coverage'] / Global_Mode
     print(regions_norm.head(12))
     print("Smooth coverage.")
     cov_array = np.array(regions_norm["Norm_Mean"])
@@ -68,7 +64,7 @@ def intersect_repeats(depth_input, repeats_input, chromosome_output, windows_out
     regions_norm.loc[:,'Smooth_Median']=pd.Series(smoothed_array)
     regions_norm = regions_norm.round(2)
     regions_norm['Sample'] = sample_name
-    regions_norm.to_csv(regions_output, sep='\t', index=False, header=True)
+    regions_norm.to_csv(windows_output, sep='\t', index=False, header=True)
 
     print("Define structure of regions.")
     structure_windows = pd.DataFrame()
@@ -77,9 +73,9 @@ def intersect_repeats(depth_input, repeats_input, chromosome_output, windows_out
         regions_windowed.loc[:, 'Structure'] = 'SINGLE_COPY'
         regions_windowed = regions_windowed.reset_index(drop=True)
         for i in range(len(regions_windowed)):
-            if regions_windowed.loc[i, 'Smooth_Median'] > 1 + change_threshold:
+            if regions_windowed.loc[i, 'Smooth_Median'] > 1 + depth_threshold:
                 regions_windowed.loc[i, 'Structure'] = "DUPLICATION"
-            elif regions_windowed.loc[i, 'Smooth_Median'] < 1 - change_threshold:
+            elif regions_windowed.loc[i, 'Smooth_Median'] < 1 - depth_threshold:
                 regions_windowed.loc[i, 'Structure'] = "DELETION"
             else:
                 regions_windowed.loc[i, 'Structure'] = "SINGLE_COPY"
@@ -99,7 +95,7 @@ def intersect_repeats(depth_input, repeats_input, chromosome_output, windows_out
     structure_windows = structure_windows[structure_windows['Structure'] != 'SINGLE_COPY']
     structure_windows = structure_windows.round(2)
     structure_windows['Sample'] = sample_name
-    structure_windows.to_csv(structural_variants_output, sep='\t', index=False, header=True)
+    structure_windows.to_csv(cnv_output, sep='\t', index=False, header=True)
     
 if __name__ == '__main__':
     intersect_repeats()

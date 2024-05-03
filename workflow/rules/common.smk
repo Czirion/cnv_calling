@@ -26,5 +26,5 @@ SAMPLE_REFERENCE = pd.DataFrame(data=d).set_index("sample", drop=False)
 #### Defining which final output files are being requested ####
 def get_final_output():
     final_output = expand(SAMPLES_DIR / "cnv" / "{sample}" / "copy_number_variants.tsv",sample=SAMPLES)
-    final_output.append(DATASET_DIR / "cnv" / "copy_number_variants_dataset.tsv")
+    final_output.append(DATASET_DIR / "copy_number_variants_dataset.tsv")
     return final_output
